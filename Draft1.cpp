@@ -8,7 +8,7 @@ const db pi4=3.1415926536/4;
 const db RU = 8314.462618; //Universal gas constant (J/(K*M))
 const int sim_i=1000;
 const int sim_i2=sim_i*0.1;
-double sim[sim_i+sim_i2][40];
+double sim[sim_i+sim_i2][20];
 string prop;
 //Static int Motor class counter
 
@@ -60,6 +60,7 @@ public:
             }
         }
     }
+
     double GetRP(db P){
         for(int i=2;i<7;i++){
             if(P<br[i][4]){
@@ -72,8 +73,6 @@ public:
 
 class Motor:public Propellant{
 public:
-
-
     db c_di; //Combustion inner length (mm)
     db c_l; //Combustion chamber length (mm)
     db g_do; //Grain Outer diameter (initial) (mm)
@@ -84,6 +83,7 @@ public:
     bool i_is;//Core surface inhibition
     bool i_es;//Ends surface inhibition
     db n_tdi;//Nozzle throat Diameter Initial
+    db n_ef;//Nozzle efficiency
     //Calculated
     db c_LD; //Chamber Length to Diameter Ratio
     db g_l; //Grain length (initial)
@@ -96,7 +96,6 @@ public:
     db kn_max;//Maximum Kn
     db x_inc;//mm
     db c_cs;//Combustion chamber cross-section
-    db n_ef;//Nozzle efficiency
     Propellant act;
 
     void SetData(db c_di, db c_l, db g_do, db g_dc, db g_sl, int g_n, bool i_os, bool i_is, bool i_es,db n_ef,Propellant act){
@@ -205,7 +204,7 @@ public:
         sim[0][2]=br_ai;//set initial Burn Area
         sim[0][4]=sim[0][11]*sden;//set initial Propellant Mass
         sim[0][5]=0;
-        sim[0][9]=0.101;//set initial pressure
+        sim[0][9]=patm;//set initial pressure
         sim[0][13]=1;//set initial expansion ratio
         //cout<<na<<endl;
         for(int x=1;x<sim_i+1;x++){
@@ -220,10 +219,9 @@ public:
             msr=mg-sim[x][6];//buildup rate
             ms=ms2+(sim[x-1][4]-sim[x][4])*msr;//buildup mass
             denpro=ms/fv;
-            sim[x][9]=denpro*act.R*act.ct/1000000+patm;
-            sim[x][13]=1/(pow(((act.k2ph+1)/2),(1/(act.k2ph-1)))*pow((patm/sim[x][9]),(1/act.k2ph))*sqrt((act.k2ph+1)/(act.k2ph-1)*(1-pow((patm/sim[x][9]),((act.k2ph-1)/act.k2ph)))));
+            sim[x][9]=denpro*act.R*act.ct/1000000+patm;//get Pressure
+            sim[x][13]=1/(pow(((act.k2ph+1)/2),(1/(act.k2ph-1)))*pow((patm/sim[x][9]),(1/act.k2ph))*sqrt((act.k2ph+1)/(act.k2ph-1)*(1-pow((patm/sim[x][9]),((act.k2ph-1)/act.k2ph)))));//Optimum expansion ratio
             cfa+=sim[x][13];
-            //end
             ms2=ms;
             //cout<<"\t p:"<<sim[x][9]<<"\t Ar:"<<sim[x][13]<<"\t cfa:"<<cfa<<"\t k2ph:"<<act.k2ph<<endl;
             //cout<<"\t r:"<<r<<"\t m:"<<sim[x][4]<<"\t t:"<<sim[x][5]<<"\t mg:"<<mg<<"\t mf:"<<sim[x][6]<<"\t mfx:"<<sim[x][7]<<"\t R:"<<act.R<<"\t ms:"<<ms<<"\t denpro:"<<denpro<<"\t p:"<<sim[x][9]<<"\t Ar:"<<sim[x][13]<<"\t cfa:"<<cfa<<endl;
@@ -234,12 +232,15 @@ public:
         }*/
         cfa=cfa/sim_i;
         //cout<<cfa;
-        db Pe=.101;
+        db Pe=patm;
         db Ae=na*cfa;
 
         for(int x=1;x<sim_i+1;x++){
             sim[x][10]=(n_ef*sqrt(2*pow(act.k2ph,2)/(act.k2ph-1)*pow((2/(act.k2ph+1)),((act.k2ph+1)/(act.k2ph-1)))*(1-pow((Pe/sim[x][9]),((act.k2ph-1)/act.k2ph))))+(Pe-patm)/sim[x][9]*(Ae/na))*(sim[x][9]*na*1000000);
-            cout<<sim[x][10]<<endl;
+            /*for(int i=0;i<14;i++){
+                cout<<sim[x][i]<<"\t";
+            }
+            cout<<endl;*/
         }
     }
 };
@@ -282,30 +283,25 @@ KNDX.SetPol(KNDX_pol);
 */
 Motor m;
 m.SetData(32,192,32,12.8,64,3,0,1,1,0.85,KNDX);
+
 /**Burn Sim**/
 /*
 Layout:
-0   -Regression (mm)
-1   -Nozzle diameter (mm)
+0   -Regression (mm)------
+1   -Nozzle diameter (mm)---------------
 2   -Burn Area (mm^2)
 3   Kn----------------------
 4   -Propellant Mass (kg)
 5   -Time (s)
 6   -Mass Flow (kg/s)
 7   Mas Flux   (kg/s.m^2)
-8   Nozzle Exit Pressure (MPa)
-9   Chamber Pressure   (MPa)
+8   Nozzle Exit Pressure (MPa)------------
+9   Chamber Pressure (MPa)
 10  Thrust  (N)
 11  Grain volume    (mm^3)
 12  Combustion Flow Area    (mm^2)
 13  Optimum Nozzle expansion ratio
-
 */
-db ri;//web regression interval
-/**Bdb c_di, db c_l, db g_do, db g_dc, db g_sl, db g_n, bool i_os, bool i_is, bool i_es,Propellant act**/
-
-db Patm=0.101; //Ambient pressure (MPa)
-ri = (m.g_do-m.g_dc)/(2*sim_i);
 
 //Calculating x_inc
 m.SetInt();
